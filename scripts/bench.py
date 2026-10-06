@@ -49,7 +49,7 @@ def best_of(fn, repeats):
 
 
 def torch_runner(z, device, compile):
-    model = Pendulum(LENGTH, DT, g=9.81, damping=0.08, q_std=0.05, r_std=0.003).to(device)
+    model = Pendulum(LENGTH, DT, g=9.81, damping=0.08, q_std=0.05, r_std=0.003).to(device, z.dtype)
     zd = z.to(device)
     x0, P0 = model.initial_state(zd[:, 0])
     Q, R = model.Q().detach(), model.R().detach()
@@ -79,7 +79,11 @@ def main():
     ap.add_argument("--batches", type=int, nargs="+", default=[1, 16, 128, 1024, 8192, 65536])
     ap.add_argument("--frames", type=int, default=300)
     ap.add_argument("--repeats", type=int, default=3)
+    ap.add_argument("--dtype", choices=["float32", "float64"], default="float32",
+                    help="PyTorch precision; the NumPy reference always computes in float64, so "
+                         "float64 gives the like-for-like comparison (MPS has no float64)")
     args = ap.parse_args()
+    suffix = "" if args.dtype == "float32" else f"_{args.dtype}"
     OUT.mkdir(exist_ok=True)
 
     devices = ["cpu"] + [d for d, ok in (("mps", torch.backends.mps.is_available()),
@@ -92,7 +96,7 @@ def main():
 
     rows = {name: {} for name in methods}
     for B in args.batches:
-        z, _ = simulate(B, args.frames, DT, seed=B)
+        z, _ = simulate(B, args.frames, DT, seed=B, dtype=getattr(torch, args.dtype))
         for name, (backend, flag) in methods.items():
             try:
                 if backend == "numpy":
@@ -107,13 +111,13 @@ def main():
             print(f"B={B:>6}  {name:<34} {rows[name][B]:>14,.0f} traj-frames/s")
 
     meta = {"machine": platform.machine(), "processor": platform.processor(),
-            "torch": torch.__version__, "frames": args.frames,
+            "torch": torch.__version__, "frames": args.frames, "torch_dtype": args.dtype,
             "note": f"NumPy loop timed on {LOOP_SAMPLE} trajectories and scaled linearly"}
     if torch.cuda.is_available():
         meta["cuda_device"] = torch.cuda.get_device_name()
-    (OUT / "bench.json").write_text(json.dumps({"meta": meta, "throughput": rows}, indent=2))
+    (OUT / f"bench{suffix}.json").write_text(json.dumps({"meta": meta, "throughput": rows}, indent=2))
     print_table(rows, args.batches)
-    plot(rows)
+    plot(rows, OUT / f"bench{suffix}.png")
 
 
 def print_table(rows, batches):
@@ -123,7 +127,7 @@ def print_table(rows, batches):
         print(f"| {name} | " + " | ".join(f"{r[b]:,.0f}" if b in r else "n/a" for b in batches) + " |")
 
 
-def plot(rows):
+def plot(rows, path):
     fig, ax = plt.subplots(figsize=(7.5, 4.8))
     for name, r in rows.items():
         if r:
@@ -134,7 +138,7 @@ def plot(rows):
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(fontsize=8)
     fig.tight_layout()
-    fig.savefig(OUT / "bench.png", dpi=150)
+    fig.savefig(path, dpi=150)
 
 
 if __name__ == "__main__":

@@ -38,11 +38,21 @@ The benchmark measures throughput in trajectory-frames per second, for forward f
 | PyTorch CPU, `torch.compile` | 8,009 | 712,410 | 3,661,136 | **11,953,544** |
 | PyTorch MPS (Apple GPU), eager | 752 | 87,100 | 2,258,199 | 3,519,772 |
 
+**Precision caveat.** The PyTorch rows above run in float32, but the NumPy reference always computes in float64, so the table flatters PyTorch. Here is the like-for-like comparison, with both sides vectorized and in float64. It runs on CPU only, because MPS has no float64. Reproduce with `uv run python scripts/bench.py --dtype float64 --batches 8192 65536`.
+
+| method (float64) | B=8192 | B=65536 |
+|---|---:|---:|
+| NumPy, batched | 1,392,445 | 1,320,848 |
+| PyTorch CPU, eager | 2,299,513 (1.7×) | 4,743,545 (3.6×) |
+| PyTorch CPU, `torch.compile` | 3,552,294 (2.6×) | 9,863,946 (**7.5×**) |
+
+The speedup over vectorized NumPy grows with batch size: 2.6× at B=8192 and 7.5× at B=65536. A separate run measured 8.2× at B=65536, so expect some run-to-run noise.
+
 What I learned from profiling:
 
 1. **A hidden GPU→CPU sync made the GPU 50× slower than it should be.** At first MPS ran at only 45,890 traj-frames/s at B=8192, and its time per step *grew* with batch size, which is not what launch overhead looks like. `torch.profiler` put 77% of the time in `aten::_local_scalar_dense`, reached through `linalg_cholesky → _linalg_check_errors → item()`. The error check copies a status flag back to the host and stalls the GPU queue every step. The next hotspot was `cholesky_solve`, whose batched triangular solve takes 45 ms on MPS at B=4096 (a batched matmul takes 0.06 ms). Switching to `cholesky_ex` (log-det only) plus a single `linalg.solve_ex` for both right-hand sides made MPS **49× faster** (2.26M traj-frames/s). The trade-off is that a non-positive-definite S now produces NaN instead of an exception.
 2. **Small matrices are dispatch-bound, not compute-bound.** Each time step is about 40 ops on batches of 2×2 matrices, and the time loop is inherently sequential. `torch.compile` fuses each step, which cuts a training iteration (forward + backward, B=32) from 424 ms to **81 ms**.
-3. **Vectorization comes first, then hardware.** Batching alone is worth 60× over the per-trajectory loop (NumPy batched vs loop). On this machine the integrated GPU never overtakes a 14-core CPU for 2×2 matrices, even at 65k trajectories. Where the GPU pays off depends on the hardware, so measure it rather than assume it.
+3. **Vectorization comes first, then hardware.** Batching alone is worth 60× over the per-trajectory loop (NumPy batched vs loop). Against that vectorized baseline, at matched precision, PyTorch adds a further 2.6–7.5×. On this machine the integrated GPU never overtakes a 14-core CPU for 2×2 matrices, even at 65k trajectories. Where the GPU pays off depends on the hardware, so measure it rather than assume it.
 
 **Run it on an NVIDIA GPU (free Colab T4):**
 

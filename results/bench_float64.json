@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "machine": "arm64",
+    "processor": "arm",
+    "torch": "2.14.1",
+    "frames": 300,
+    "torch_dtype": "float64",
+    "note": "NumPy loop timed on 32 trajectories and scaled linearly"
+  },
+  "throughput": {
+    "NumPy, loop over trajectories": {
+      "8192": 24292.1715443758,
+      "65536": 22779.667094210217
+    },
+    "NumPy, batched": {
+      "8192": 1392444.584568097,
+      "65536": 1320848.197956735
+    },
+    "PyTorch CPU, eager": {
+      "8192": 2299513.25378634,
+      "65536": 4743545.37358662
+    },
+    "PyTorch CPU, torch.compile": {
+      "8192": 3552294.0177819575,
+      "65536": 9863946.462542288
+    },
+    "PyTorch MPS, eager": {},
+    "PyTorch MPS, torch.compile": {}
+  }
+}
