@@ -1,0 +1,47 @@
+{
+  "g_true": 9.81,
+  "g_full_model": 9.808338944000715,
+  "g_small_angle_model": 9.177729425525994,
+  "full_model_rel_error_pct": -0.0169322731833391,
+  "small_angle_rel_error_pct": -6.445163858042877,
+  "learned_r_std_m": 0.0029845337468839333,
+  "true_r_std_m": 0.003,
+  "learned_damping": 0.07940436683581739,
+  "true_damping": 0.08,
+  "angle_rmse_raw_rad": 0.005972773864828338,
+  "angle_rmse_ekf_rad": 0.0019000886713283584,
+  "adam_iterations": 250,
+  "fit_seconds_cpu_incl_compile": 31.419370250077918,
+  "amplitude_sweep": [
+    {
+      "theta0_mid_rad": 0.1,
+      "g_full": 9.793718503862323,
+      "g_small_angle": 9.777377402726843
+    },
+    {
+      "theta0_mid_rad": 0.25,
+      "g_full": 9.812320406569164,
+      "g_small_angle": 9.742836677808043
+    },
+    {
+      "theta0_mid_rad": 0.45,
+      "g_full": 9.808283490564065,
+      "g_small_angle": 9.59928468648166
+    },
+    {
+      "theta0_mid_rad": 0.6499999999999999,
+      "g_full": 9.808681792516806,
+      "g_small_angle": 9.37356603594405
+    },
+    {
+      "theta0_mid_rad": 0.8500000000000001,
+      "g_full": 9.809894217103185,
+      "g_small_angle": 9.077493081484448
+    },
+    {
+      "theta0_mid_rad": 1.05,
+      "g_full": 9.811613871233028,
+      "g_small_angle": 8.717350270410675
+    }
+  ]
+}
